@@ -2,10 +2,18 @@
 -- SIGRU - Sistema Integrado de Gestão do Restaurante Universitário
 -- Script de Criação do Banco de Dados (MySQL)
 -- Tamanhos de atributos conforme Dicionário de Dados do Seminário I
+--
+-- Inclui:
+--   - Charset utf8mb4
+--   - Constraints UNIQUE de regras de negócio
+--   - DEFAULTS em campos críticos
+--   - Tipos alinhados entre PK/FK
 -- =====================================================================
 
 DROP DATABASE IF EXISTS sigru;
-CREATE DATABASE sigru;
+CREATE DATABASE sigru
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
 USE sigru;
 
 -- =====================================================================
@@ -18,7 +26,8 @@ CREATE TABLE cidade (
     descricao     VARCHAR(100) NOT NULL,
     uf            VARCHAR(2) NOT NULL,
     codigo_ibge   VARCHAR(7) NOT NULL,
-    PRIMARY KEY (id_cidade)
+    PRIMARY KEY (id_cidade),
+    UNIQUE KEY uk_cidade_codigo_ibge (codigo_ibge)
 );
 
 -- BAIRRO (FK -> CIDADE)
@@ -35,36 +44,42 @@ CREATE TABLE bairro (
 CREATE TABLE categoria_usuario (
     id_categoria  INT(3) UNSIGNED AUTO_INCREMENT,
     descricao     VARCHAR(50) NOT NULL,
-    PRIMARY KEY (id_categoria)
+    PRIMARY KEY (id_categoria),
+    UNIQUE KEY uk_categoria_descricao (descricao)
 );
 
 -- TIPO_PRODUTO
 CREATE TABLE tipo_produto (
     id_tipo         INT(3) UNSIGNED AUTO_INCREMENT,
     descricao_tipo  VARCHAR(100) NOT NULL,
-    PRIMARY KEY (id_tipo)
+    PRIMARY KEY (id_tipo),
+    UNIQUE KEY uk_tipo_produto_descricao (descricao_tipo)
 );
 
 -- ITENS_CARDAPIO_TIPO
 CREATE TABLE itens_cardapio_tipo (
     id_tipo       INT(6) UNSIGNED AUTO_INCREMENT,
     descricao     VARCHAR(50) NOT NULL,
-    PRIMARY KEY (id_tipo)
+    PRIMARY KEY (id_tipo),
+    UNIQUE KEY uk_itens_cardapio_tipo_descricao (descricao)
 );
 
 -- CARDAPIO
+-- UNIQUE (data_servico, turno): um cardápio por dia/turno
 CREATE TABLE cardapio (
     id_cardapio   INT(6) UNSIGNED AUTO_INCREMENT,
-    data_servico  DATETIME NOT NULL,
+    data_servico  DATE NOT NULL,
     turno         VARCHAR(20) NOT NULL,
-    PRIMARY KEY (id_cardapio)
+    PRIMARY KEY (id_cardapio),
+    UNIQUE KEY uk_cardapio_data_turno (data_servico, turno)
 );
 
 -- FILA
 CREATE TABLE fila (
     id_fila    INT(6) UNSIGNED AUTO_INCREMENT,
     tipo_fila  VARCHAR(20) NOT NULL,
-    PRIMARY KEY (id_fila)
+    PRIMARY KEY (id_fila),
+    UNIQUE KEY uk_fila_tipo (tipo_fila)
 );
 
 -- =====================================================================
@@ -109,6 +124,7 @@ CREATE TABLE usuario (
     id_bairro     INT(6) UNSIGNED NOT NULL,
     endereco      VARCHAR(100) NOT NULL,
     PRIMARY KEY (id_usuario),
+    UNIQUE KEY uk_usuario_matricula (matricula),
     CONSTRAINT fk_usuario_categoria FOREIGN KEY (id_categoria)
         REFERENCES categoria_usuario (id_categoria),
     CONSTRAINT fk_usuario_bairro FOREIGN KEY (id_bairro)
@@ -139,25 +155,28 @@ CREATE TABLE itens_cardapio (
         REFERENCES itens_cardapio_tipo (id_tipo)
 );
 
--- ITENS_CARDAPIO_TIPO_CATEGORIAS_VALORES (FK -> ITENS_CARDAPIO_TIPO, CATEGORIA_USUARIO)
+-- ITENS_CARDAPIO_TIPO_CATEGORIAS_VALORES
+-- Preço único por combinação tipo de item × categoria de usuário
 CREATE TABLE itens_cardapio_tipo_categorias_valores (
     id_categoria_valores INT(6) UNSIGNED AUTO_INCREMENT,
     id_tipo              INT(6) UNSIGNED NOT NULL,
-    id_categoria         INT(6) UNSIGNED NOT NULL,
+    id_categoria         INT(3) UNSIGNED NOT NULL,
     valor                DECIMAL(8,2) NOT NULL,
     PRIMARY KEY (id_categoria_valores),
+    UNIQUE KEY uk_preco_tipo_categoria (id_tipo, id_categoria),
     CONSTRAINT fk_ictcv_tipo FOREIGN KEY (id_tipo)
         REFERENCES itens_cardapio_tipo (id_tipo),
     CONSTRAINT fk_ictcv_categoria FOREIGN KEY (id_categoria)
         REFERENCES categoria_usuario (id_categoria)
 );
 
--- CARTEIRA_DIGITAL (FK -> USUARIO)
+-- CARTEIRA_DIGITAL (FK -> USUARIO) — relação 1:1 com usuário
 CREATE TABLE carteira_digital (
     id_carteira INT(6) UNSIGNED AUTO_INCREMENT,
     id_usuario  INT(6) UNSIGNED NOT NULL,
-    saldo       DECIMAL(8,2) NOT NULL,
+    saldo       DECIMAL(8,2) NOT NULL DEFAULT 0.00,
     PRIMARY KEY (id_carteira),
+    UNIQUE KEY uk_carteira_usuario (id_usuario),
     CONSTRAINT fk_carteira_usuario FOREIGN KEY (id_usuario)
         REFERENCES usuario (id_usuario)
 );
@@ -166,13 +185,15 @@ CREATE TABLE carteira_digital (
 -- TABELAS DEPENDENTES DE NÍVEL 3
 -- =====================================================================
 
--- ESTOQUE (FK -> PRODUTO)
+-- ESTOQUE (FK -> PRODUTO) — um registro de saldo por produto
 CREATE TABLE estoque (
     id_estoque       INT(6) UNSIGNED AUTO_INCREMENT,
-    quantidade       INT(8) UNSIGNED NOT NULL,
-    data_atualizacao DATETIME NOT NULL,
+    quantidade       INT(8) UNSIGNED NOT NULL DEFAULT 0,
+    data_atualizacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                     ON UPDATE CURRENT_TIMESTAMP,
     id_produto       INT(6) UNSIGNED NOT NULL,
     PRIMARY KEY (id_estoque),
+    UNIQUE KEY uk_estoque_produto (id_produto),
     CONSTRAINT fk_estoque_produto FOREIGN KEY (id_produto)
         REFERENCES produto (id_produto)
 );
@@ -182,7 +203,7 @@ CREATE TABLE movimento_estoque (
     id_movimento    INT(8) UNSIGNED AUTO_INCREMENT,
     tipo_movimento  VARCHAR(10) NOT NULL,
     quantidade_mov  INT(8) UNSIGNED NOT NULL,
-    data_movimento  DATETIME NOT NULL,
+    data_movimento  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     id_produto      INT(6) UNSIGNED NOT NULL,
     cnpj_fornecedor VARCHAR(14) NULL,
     PRIMARY KEY (id_movimento),
@@ -205,7 +226,7 @@ CREATE TABLE receita (
 CREATE TABLE conta_receber (
     id_conta_receber  INT(6) UNSIGNED AUTO_INCREMENT,
     valor             DECIMAL(8,2) NOT NULL,
-    data_prevista     DATETIME NOT NULL,
+    data_prevista     DATE NOT NULL,
     origem            VARCHAR(50) NOT NULL,
     PRIMARY KEY (id_conta_receber)
 );
@@ -218,8 +239,8 @@ CREATE TABLE conta_receber (
 CREATE TABLE itens_cardapio_receita (
     id_itens_cardapio_receita INT(6) UNSIGNED AUTO_INCREMENT,
     qtd_necessaria            DECIMAL(8,2) NOT NULL,
-    id_itens_cardapio         INT(5) UNSIGNED NOT NULL,
-    id_receita                INT(5) UNSIGNED NOT NULL,
+    id_itens_cardapio         INT(6) UNSIGNED NOT NULL,
+    id_receita                INT(6) UNSIGNED NOT NULL,
     PRIMARY KEY (id_itens_cardapio_receita),
     CONSTRAINT fk_icr_itenscardapio FOREIGN KEY (id_itens_cardapio)
         REFERENCES itens_cardapio (id_itens_cardapio),
@@ -245,8 +266,8 @@ CREATE TABLE itens_fila (
     id_itens_fila     INT(6) UNSIGNED AUTO_INCREMENT,
     id_usuario        INT(6) UNSIGNED NOT NULL,
     id_fila           INT(6) UNSIGNED NOT NULL,
-    horario_inscricao DATETIME NOT NULL,
-    situacao          VARCHAR(20) NOT NULL,
+    horario_inscricao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    situacao          VARCHAR(20) NOT NULL DEFAULT 'em espera',
     PRIMARY KEY (id_itens_fila),
     CONSTRAINT fk_itensfila_usuario FOREIGN KEY (id_usuario)
         REFERENCES usuario (id_usuario),
@@ -261,7 +282,7 @@ CREATE TABLE refeicao (
     id_itens_cardapio    INT(6) UNSIGNED NOT NULL,
     id_categoria_valores INT(6) UNSIGNED NOT NULL,
     valor                DECIMAL(8,2) NOT NULL,
-    horario_entrada      DATETIME NOT NULL,
+    horario_entrada      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     horario_saida        DATETIME NULL,
     PRIMARY KEY (id_refeicao),
     CONSTRAINT fk_refeicao_usuario FOREIGN KEY (id_usuario)
@@ -277,7 +298,7 @@ CREATE TABLE recarga_historico (
     id_recarga  INT(6) UNSIGNED AUTO_INCREMENT,
     id_carteira INT(6) UNSIGNED NOT NULL,
     valor       DECIMAL(8,2) NOT NULL,
-    data        DATETIME NOT NULL,
+    data        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id_recarga),
     CONSTRAINT fk_recarga_carteira FOREIGN KEY (id_carteira)
         REFERENCES carteira_digital (id_carteira)
@@ -287,11 +308,15 @@ CREATE TABLE recarga_historico (
 CREATE TABLE conta_pagar (
     id_conta_pagar  INT(6) UNSIGNED AUTO_INCREMENT,
     valor           DECIMAL(10,2) NOT NULL,
-    data_vencimento DATETIME NOT NULL,
-    status          VARCHAR(20) NOT NULL,
+    data_vencimento DATE NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
     origem          VARCHAR(20) NOT NULL,
     cnpj_fornecedor VARCHAR(14) NULL,
     PRIMARY KEY (id_conta_pagar),
     CONSTRAINT fk_contapagar_fornecedor FOREIGN KEY (cnpj_fornecedor)
         REFERENCES fornecedores (cnpj)
 );
+
+-- =====================================================================
+-- FIM DA CRIAÇÃO DAS TABELAS
+-- =====================================================================

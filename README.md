@@ -1,122 +1,70 @@
-# SIGRU
+# SIGRU (Laravel)
 
-Versão 1.0 do sistema web integrado "SIGRU", Sistema Integrado de Gerenciamento do Restaurante Universítario, desenvolvido para gerenciamento completo do restaurante.
+Sistema Integrado de Gerenciamento do Restaurante Universitário — Unimontes.
 
-## Sobre o projeto
+> **Evolução avançada** do repositório original [SIGRU-web](https://github.com/LuisSilvaDEV01/SIGRU-web) (PHP procedural).  
+> Esta versão reescreve a aplicação em **Laravel**, consome o mesmo domínio MySQL e usa de fato as **views, triggers e stored procedures** do Seminário II (BD II).
 
-O SIGRU é uma aplicação web desenvolvida com foco em organização, gerenciamento e execução das funcionalidades propostas pelo projeto, utilizando arquitetura baseada em PHP e persistência de dados em MySQL.
+## O que mudou em relação ao SIGRU-web
 
-O sistema foi estruturado para funcionamento em ambiente local utilizando servidor Apache e banco de dados relacional.
+| Antes (`SIGRU-web`) | Agora (este repositório) |
+|---------------------|--------------------------|
+| PHP procedural na raiz | Laravel na raiz |
+| SQL solto em `database/` | Scripts em `database/sql/` |
+| App antigo como único código | App legado preservado em `legacy/` |
+| Updates manuais de estoque/carteira | Procedures + triggers do banco |
 
----
+## Estrutura
 
-## Tecnologias utilizadas
+- **Laravel** — aplicação atual (Dashboard, Fila, Refeição, Carteiras, Estoque)
+- **`legacy/`** — app PHP procedural (versão anterior, preservada)
+- **`database/sql/`** — scripts acadêmicos do banco:
+  - `sigru_create.sql`
+  - `sigru_seed.sql`
+  - `sigru_avancado.sql`
 
-* PHP
-* MySQL
-* HTML5
-* CSS3
-* JavaScript
-* XAMPP (ambiente de execução)
+## Banco de dados
 
----
+Ordem de importação no MySQL (Laragon/Workbench):
 
-## Estrutura do projeto
+1. `database/sql/sigru_create.sql`
+2. `database/sql/sigru_seed.sql`
+3. `database/sql/sigru_avancado.sql`
+
+Configuração em `.env`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=sigru
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+## Como rodar
+
+O Laravel 13 exige **PHP 8.3+** (ex.: Laragon). PHP 8.2 do XAMPP não serve para esta app.
 
 ```bash
-sigru_app/
-├── assets/
-├── config/
-├── database/
-├── pages/
-├── index.php
-├── sigru_seed.sql
-└── README.md
+composer install
+cp .env.example .env
+php artisan key:generate
+# ajuste DB_* no .env e importe os 3 SQLs
+php artisan serve
 ```
 
-> Observação: a estrutura pode variar conforme atualizações do projeto.
+- App: http://127.0.0.1:8000
+- Health: http://127.0.0.1:8000/health
 
----
+## Módulos já migrados
 
-## Configuração do ambiente
-
-### 1. Clonar o repositório
-
-```bash
-git clone <https://github.com/LuisSilvaDEV01/SIGRU-web.git>
-```
-
-### 2. Mover para o diretório do servidor
-
-Exemplo utilizando XAMPP:
-
-```bash
-C:\xampp\htdocs\
-```
-
-### 3. Iniciar serviços
-
-Iniciar:
-
-* Apache
-* MySQL
-
-### 4. Criar banco de dados
-
-Criar um banco chamado:
-
-```txt
-sigru
-```
-
-### 5. Importar banco
-
-Importar os arquivos:
-
-```txt
-sigru_create.sql
-```
-
-```txt
-sigru_seed.sql
-```
-
----
-
-Responsáveis pela criação da estrutura do banco (tabelas, relacionamentos e constraints) e alimentação de dados.
-
-## Executando o sistema
-
-Acessar:
-
-```txt
-http://localhost/sigru_app
-```
-
----
-
-## Funcionalidades
-
-* Gerenciamento de dados
-* Persistência em banco MySQL
-* Interface web
-* Operações CRUD
-
----
+1. Dashboard (views do dia)
+2. Fila virtual
+3. Registro de refeição (`sp_registrar_refeicao`)
+4. Carteiras (`sp_recarregar_carteira`)
+5. Estoque (`sp_movimentar_estoque` + trigger)
 
 ## Autores
 
-Desenvolvido como projeto acadêmico.
-
-Autores:
-
-* Luís Otávio de Souza e Silva
-* Matheus Gonçalves Dias
-
----
-
-## Licença
-
-Projeto desenvolvido para fins acadêmicos. 
-
-Curso de Sistemas de Informação - Universidade Estadual de Montes Claros
+Luís Otávio de Souza e Silva, Matheus Gonçalves Dias — Sistemas de Informação / Unimontes.

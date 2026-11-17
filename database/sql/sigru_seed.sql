@@ -1,10 +1,25 @@
 -- =====================================================================
--- SIGRU - Script de povoamento COMPLETO (dados fictícios)
--- Inclui cardápios para HOJE e para AMANHÃ (data da apresentação)
+-- SIGRU - Script de povoamento (dados fictícios para demonstração)
+--
+-- Ordem de importação:
+--   1) sigru_create.sql
+--   2) sigru_seed.sql      <-- este arquivo
+--   3) sigru_avancado.sql  (Views, Índices, Triggers, Procedures)
+--
+-- Segurança:
+--   Se o sigru_avancado.sql já tiver sido importado, este script
+--   remove temporariamente os TRIGGERS para evitar dupla atualização
+--   de estoque/carteira durante o povoamento.
+--   Após o seed, reimporte o sigru_avancado.sql para recriar os triggers.
 -- =====================================================================
 USE sigru;
+SET NAMES utf8mb4;
 
--- Desliga checagem de FK temporariamente para permitir TRUNCATE em qualquer ordem
+-- Remove triggers avançados (se existirem) para povoamento limpo
+DROP TRIGGER IF EXISTS trg_movimento_atualiza_estoque;
+DROP TRIGGER IF EXISTS trg_refeicao_debita_carteira;
+
+-- Desliga checagem de FK para permitir TRUNCATE em qualquer ordem
 SET FOREIGN_KEY_CHECKS = 0;
 
 TRUNCATE TABLE recarga_historico;
@@ -93,14 +108,15 @@ INSERT INTO itens_cardapio_tipo (descricao) VALUES
 ('Sobremesa');
 
 -- =====================================================================
--- CARDAPIO (HOJE e AMANHÃ — data da apresentação)
+-- CARDAPIO (HOJE, AMANHÃ e DEPOIS — datas relativas à importação)
+-- UNIQUE (data_servico, turno) garantido pelo DDL
 -- =====================================================================
 INSERT INTO cardapio (data_servico, turno) VALUES
-(CURDATE(), 'Almoço'),                                  -- id 1
-(CURDATE(), 'Jantar'),                                   -- id 2
-(DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'Almoço'),         -- id 3 (apresentação)
-(DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'Jantar'),         -- id 4 (apresentação)
-(DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'Almoço');         -- id 5
+(CURDATE(),                          'Almoço'),  -- id 1
+(CURDATE(),                          'Jantar'),  -- id 2
+(DATE_ADD(CURDATE(), INTERVAL 1 DAY),'Almoço'),  -- id 3
+(DATE_ADD(CURDATE(), INTERVAL 1 DAY),'Jantar'),  -- id 4
+(DATE_ADD(CURDATE(), INTERVAL 2 DAY),'Almoço');  -- id 5
 
 -- =====================================================================
 -- FILA
@@ -114,28 +130,28 @@ INSERT INTO fila (tipo_fila) VALUES
 -- FUNCIONARIO (PK = CPF)
 -- =====================================================================
 INSERT INTO funcionario (cpf, nome_funcionario, cargo, privilegios, id_bairro, endereco) VALUES
-('11122233344', 'Carlos Eduardo Reis',     'Cozinheiro Chefe', 'ESTOQUE,CARDAPIO',     1, 'Rua das Flores, 100'),
-('22233344455', 'Fernanda Lima Souza',     'Atendente',         'CAIXA,FILA',           2, 'Av. Brasil, 250'),
-('33344455566', 'Roberto Almeida Costa',   'Administrador',     'TOTAL',                3, 'Rua Goiás, 45'),
-('44455566677', 'Juliana Pereira Santos',  'Cozinheira',        'ESTOQUE,CARDAPIO',     4, 'Rua Minas Gerais, 12'),
-('55566677788', 'Marcos Vinícius Oliveira','Atendente',         'CAIXA,FILA',           5, 'Rua Bahia, 88'),
-('66677788899', 'Patrícia Gomes Ribeiro',  'Nutricionista',     'CARDAPIO,RELATORIOS',  6, 'Rua Pará, 33'),
-('77788899900', 'Eduardo Henrique Lima',   'Auxiliar de Cozinha','ESTOQUE',             7, 'Rua Ceará, 21');
+('11122233344', 'Carlos Eduardo Reis',      'Cozinheiro Chefe',   'ESTOQUE,CARDAPIO',    1, 'Rua das Flores, 100'),
+('22233344455', 'Fernanda Lima Souza',      'Atendente',          'CAIXA,FILA',          2, 'Av. Brasil, 250'),
+('33344455566', 'Roberto Almeida Costa',    'Administrador',      'TOTAL',               3, 'Rua Goiás, 45'),
+('44455566677', 'Juliana Pereira Santos',   'Cozinheira',         'ESTOQUE,CARDAPIO',    4, 'Rua Minas Gerais, 12'),
+('55566677788', 'Marcos Vinícius Oliveira', 'Atendente',          'CAIXA,FILA',          5, 'Rua Bahia, 88'),
+('66677788899', 'Patrícia Gomes Ribeiro',   'Nutricionista',      'CARDAPIO,RELATORIOS', 6, 'Rua Pará, 33'),
+('77788899900', 'Eduardo Henrique Lima',    'Auxiliar de Cozinha','ESTOQUE',             7, 'Rua Ceará, 21');
 
 -- =====================================================================
 -- FORNECEDORES (PK = CNPJ)
 -- =====================================================================
 INSERT INTO fornecedores (cnpj, razao_social, telefone, id_bairro, endereco) VALUES
-('12345678000190', 'Distribuidora Alimentos MG Ltda',  '38999991111', 8,  'Av. Industrial, 500'),
-('98765432000110', 'Hortifruti Vale do Verde Ltda',     '38988882222', 9,  'Rua das Hortas, 12'),
-('45612378000155', 'Laticínios Serra Azul S/A',         '38977773333', 1,  'Rua dos Laticínios, 78'),
-('32165498000122', 'Frigorífico Boi Forte Ltda',        '38966664444', 10, 'Rod. MG-122, Km 5'),
-('15975346000188', 'Distribuidora de Limpeza Brilho',   '38955556666', 11, 'Av. Sanitária, 200'),
-('75395146000133', 'Padaria e Doceria Pão Quente',      '38944447777', 2,  'Rua do Pão, 33'),
-('85274196000177', 'Embalagens Descartáveis MC',        '38933338888', 3,  'Rua Industrial, 150');
+('12345678000190', 'Distribuidora Alimentos MG Ltda', '38999991111', 8,  'Av. Industrial, 500'),
+('98765432000110', 'Hortifruti Vale do Verde Ltda',    '38988882222', 9,  'Rua das Hortas, 12'),
+('45612378000155', 'Laticínios Serra Azul S/A',        '38977773333', 1,  'Rua dos Laticínios, 78'),
+('32165498000122', 'Frigorífico Boi Forte Ltda',       '38966664444', 10, 'Rod. MG-122, Km 5'),
+('15975346000188', 'Distribuidora de Limpeza Brilho',  '38955556666', 11, 'Av. Sanitária, 200'),
+('75395146000133', 'Padaria e Doceria Pão Quente',     '38944447777', 2,  'Rua do Pão, 33'),
+('85274196000177', 'Embalagens Descartáveis MC',       '38933338888', 3,  'Rua Industrial, 150');
 
 -- =====================================================================
--- USUARIO
+-- USUARIO (matricula UNIQUE)
 -- =====================================================================
 INSERT INTO usuario (matricula, nome_completo, id_categoria, id_bairro, endereco) VALUES
 (202310001, 'Luís Otávio de Souza e Silva', 1, 1, 'Rua A, 10'),
@@ -197,7 +213,7 @@ INSERT INTO itens_cardapio (id_cardapio, id_tipo, descricao) VALUES
 -- Hoje - Jantar (id_cardapio 2)
 (2, 1, 'Arroz, feijão, carne moída e legumes refogados'),
 (2, 3, 'Marmitex fit: arroz integral, frango grelhado e legumes no vapor'),
--- Amanhã - Almoço (id_cardapio 3) — DIA DA APRESENTAÇÃO
+-- Amanhã - Almoço (id_cardapio 3)
 (3, 1, 'Arroz, feijão tropeiro, linguiça acebolada e couve'),
 (3, 2, 'Marmitex tradicional: arroz, feijão, linguiça e salada'),
 (3, 4, 'Marmitex vegetariano: arroz, feijão, legumes grelhados e tofu'),
@@ -210,7 +226,7 @@ INSERT INTO itens_cardapio (id_cardapio, id_tipo, descricao) VALUES
 (5, 2, 'Marmitex tradicional: arroz, feijão, frango à parmegiana');
 
 -- =====================================================================
--- ITENS_CARDAPIO_TIPO_CATEGORIAS_VALORES
+-- PREÇOS (tipo de item × categoria) — UNIQUE (id_tipo, id_categoria)
 -- =====================================================================
 INSERT INTO itens_cardapio_tipo_categorias_valores (id_tipo, id_categoria, valor) VALUES
 (1, 1, 8.50),   -- Prato Livre / Aluno
@@ -232,7 +248,8 @@ INSERT INTO itens_cardapio_tipo_categorias_valores (id_tipo, id_categoria, valor
 (5, 4, 5.00);   -- Sobremesa / Visitante
 
 -- =====================================================================
--- CARTEIRA_DIGITAL
+-- CARTEIRA_DIGITAL (1:1 com usuário; saldo DEFAULT 0.00)
+-- Saldos já consideram o efeito das refeições/recargas do seed
 -- =====================================================================
 INSERT INTO carteira_digital (id_usuario, saldo) VALUES
 (1, 50.00), (2, 20.00), (3, 35.50), (4, 100.00), (5, 10.00),
@@ -241,18 +258,9 @@ INSERT INTO carteira_digital (id_usuario, saldo) VALUES
 (16, 5.00),  (17, 25.00), (18, 60.00);
 
 -- =====================================================================
--- ESTOQUE
--- =====================================================================
-INSERT INTO estoque (quantidade, data_atualizacao, id_produto) VALUES
-(200, NOW(), 1),  (150, NOW(), 2),  (80, NOW(), 3),  (60, NOW(), 4),
-(45, NOW(), 5),   (120, NOW(), 6),  (35, NOW(), 7),  (18, NOW(), 8),
-(60, NOW(), 9),   (90, NOW(), 10),  (70, NOW(), 11), (55, NOW(), 12),
-(110, NOW(), 13), (40, NOW(), 14), (30, NOW(), 15), (25, NOW(), 16),
-(50, NOW(), 17),  (65, NOW(), 18), (20, NOW(), 19), (40, NOW(), 20),
-(85, NOW(), 21),  (300, NOW(), 22),(500, NOW(), 23),(400, NOW(), 24);
-
--- =====================================================================
--- MOVIMENTO_ESTOQUE
+-- MOVIMENTO_ESTOQUE (histórico)
+-- Em seguida o ESTOQUE é gravado com o saldo LÍQUIDO coerente
+-- (entradas − saídas) para manter integridade demonstrável.
 -- =====================================================================
 INSERT INTO movimento_estoque (tipo_movimento, quantidade_mov, data_movimento, id_produto, cnpj_fornecedor) VALUES
 ('ENTRADA', 200, DATE_SUB(NOW(), INTERVAL 10 DAY), 1,  '12345678000190'),
@@ -285,65 +293,87 @@ INSERT INTO movimento_estoque (tipo_movimento, quantidade_mov, data_movimento, i
 ('SAIDA',   8,   DATE_SUB(NOW(), INTERVAL 1 DAY),  9,  NULL),
 ('SAIDA',   5,   NOW(),                            6,  NULL);
 
+-- Saldo líquido = Σ ENTRADA − Σ SAIDA (por produto)
+INSERT INTO estoque (quantidade, data_atualizacao, id_produto) VALUES
+(180, NOW(), 1),  -- 200 - 20
+(135, NOW(), 2),  -- 150 - 15
+(90,  NOW(), 3),  -- 100 - 10
+(70,  NOW(), 4),
+(50,  NOW(), 5),
+(145, NOW(), 6),  -- 150 - 5
+(40,  NOW(), 7),
+(20,  NOW(), 8),
+(62,  NOW(), 9),  -- 70 - 8
+(100, NOW(), 10),
+(80,  NOW(), 11),
+(60,  NOW(), 12),
+(120, NOW(), 13),
+(50,  NOW(), 14),
+(35,  NOW(), 15),
+(30,  NOW(), 16),
+(60,  NOW(), 17),
+(80,  NOW(), 18),
+(25,  NOW(), 19),
+(50,  NOW(), 20),
+(100, NOW(), 21),
+(300, NOW(), 22),
+(500, NOW(), 23),
+(400, NOW(), 24);
+
 -- =====================================================================
--- RECEITA
+-- RECEITA + FICHA TÉCNICA
 -- =====================================================================
 INSERT INTO receita (nome, rendimento, preparo) VALUES
-('Arroz Branco',          50.00, 'Refogar o arroz com alho e cebola, adicionar água e cozinhar até secar.'),
-('Feijão Tropeiro',       40.00, 'Cozinhar o feijão, refogar com bacon, linguiça, couve e farinha de mandioca.'),
-('Frango Grelhado',       30.00, 'Temperar o peito de frango e grelhar em fogo médio até dourar.'),
-('Linguiça Acebolada',    25.00, 'Grelhar a linguiça em rodelas e refogar com cebola até dourar.'),
-('Salada de Alface',      50.00, 'Higienizar e cortar a alface, temperar com sal e azeite.'),
-('Carne de Panela',       35.00, 'Cozinhar a carne em fogo baixo com temperos até ficar macia.'),
-('Purê de Batata',        40.00, 'Cozinhar e amassar as batatas, adicionar leite e manteiga.'),
-('Legumes Grelhados',     30.00, 'Grelhar cenoura, abobrinha e pimentão em fatias.');
+('Arroz Branco',       50.00, 'Refogar o arroz com alho e cebola, adicionar água e cozinhar até secar.'),
+('Feijão Tropeiro',    40.00, 'Cozinhar o feijão, refogar com bacon, linguiça, couve e farinha de mandioca.'),
+('Frango Grelhado',    30.00, 'Temperar o peito de frango e grelhar em fogo médio até dourar.'),
+('Linguiça Acebolada', 25.00, 'Grelhar a linguiça em rodelas e refogar com cebola até dourar.'),
+('Salada de Alface',   50.00, 'Higienizar e cortar a alface, temperar com sal e azeite.'),
+('Carne de Panela',    35.00, 'Cozinhar a carne em fogo baixo com temperos até ficar macia.'),
+('Purê de Batata',     40.00, 'Cozinhar e amassar as batatas, adicionar leite e manteiga.'),
+('Legumes Grelhados',  30.00, 'Grelhar cenoura, abobrinha e pimentão em fatias.');
 
--- =====================================================================
--- ITENS_RECEITA_PRODUTO (ficha técnica)
--- =====================================================================
 INSERT INTO itens_receita_produto (qtd_produto, id_receita, id_produto) VALUES
-(5.00,  1, 1),   -- Arroz Branco usa Arroz
-(8.00,  2, 2),   -- Feijão Tropeiro usa Feijão
-(15.00, 3, 3),   -- Frango Grelhado usa Peito de Frango
-(10.00, 4, 5),   -- Linguiça Acebolada usa Linguiça
-(2.00,  4, 11),  -- Linguiça Acebolada usa Cebola
-(10.00, 5, 9),   -- Salada usa Alface
-(2.00,  5, 10),  -- Salada usa Tomate
-(12.00, 6, 4),   -- Carne de Panela usa Carne Bovina
-(10.00, 7, 13),  -- Purê de Batata usa Batata
-(2.00,  7, 6),   -- Purê de Batata usa Leite
-(5.00,  8, 12),  -- Legumes Grelhados usa Cenoura
-(3.00,  8, 10);  -- Legumes Grelhados usa Tomate
+(5.00,  1, 1),   -- Arroz Branco → Arroz
+(8.00,  2, 2),   -- Feijão Tropeiro → Feijão
+(15.00, 3, 3),   -- Frango Grelhado → Peito de Frango
+(10.00, 4, 5),   -- Linguiça Acebolada → Linguiça
+(2.00,  4, 11),  -- Linguiça Acebolada → Cebola
+(10.00, 5, 9),   -- Salada → Alface
+(2.00,  5, 10),  -- Salada → Tomate
+(12.00, 6, 4),   -- Carne de Panela → Carne Bovina
+(10.00, 7, 13),  -- Purê → Batata
+(2.00,  7, 6),   -- Purê → Leite
+(5.00,  8, 12),  -- Legumes → Cenoura
+(3.00,  8, 10);  -- Legumes → Tomate
 
--- =====================================================================
--- ITENS_CARDAPIO_RECEITA
--- =====================================================================
 INSERT INTO itens_cardapio_receita (qtd_necessaria, id_itens_cardapio, id_receita) VALUES
-(1.00, 1, 1),   -- Hoje Almoço Prato Livre: Arroz
-(1.00, 1, 3),   -- Hoje Almoço Prato Livre: Frango Grelhado
-(1.00, 1, 5),   -- Hoje Almoço Prato Livre: Salada
-(1.00, 2, 1),   -- Hoje Almoço Marmitex: Arroz
-(1.00, 2, 3),   -- Hoje Almoço Marmitex: Frango Grelhado
-(1.00, 6, 1),   -- Amanhã Almoço Prato Livre: Arroz
-(1.00, 6, 2),   -- Amanhã Almoço Prato Livre: Feijão Tropeiro
-(1.00, 6, 4),   -- Amanhã Almoço Prato Livre: Linguiça Acebolada
-(1.00, 7, 1),   -- Amanhã Almoço Marmitex: Arroz
-(1.00, 7, 4);   -- Amanhã Almoço Marmitex: Linguiça Acebolada
+(1.00, 1, 1),   -- Hoje Almoço Prato Livre → Arroz
+(1.00, 1, 3),   -- Hoje Almoço Prato Livre → Frango Grelhado
+(1.00, 1, 5),   -- Hoje Almoço Prato Livre → Salada
+(1.00, 2, 1),   -- Hoje Almoço Marmitex → Arroz
+(1.00, 2, 3),   -- Hoje Almoço Marmitex → Frango Grelhado
+(1.00, 6, 1),   -- Amanhã Almoço Prato Livre → Arroz
+(1.00, 6, 2),   -- Amanhã Almoço Prato Livre → Feijão Tropeiro
+(1.00, 6, 4),   -- Amanhã Almoço Prato Livre → Linguiça Acebolada
+(1.00, 7, 1),   -- Amanhã Almoço Marmitex → Arroz
+(1.00, 7, 4);   -- Amanhã Almoço Marmitex → Linguiça Acebolada
 
 -- =====================================================================
--- ITENS_FILA
+-- ITENS_FILA (situacao DEFAULT = 'em espera')
 -- =====================================================================
 INSERT INTO itens_fila (id_usuario, id_fila, horario_inscricao, situacao) VALUES
-(1,  2, CONCAT(CURDATE(), ' 11:30:00'), 'finalizado'),
-(3,  1, CONCAT(CURDATE(), ' 11:45:00'), 'finalizado'),
-(4,  1, CONCAT(CURDATE(), ' 11:50:00'), 'finalizado'),
-(2,  2, NOW(), 'em espera'),
-(5,  3, NOW(), 'em espera'),
-(6,  2, NOW(), 'em espera'),
-(7,  1, NOW(), 'em espera');
+(1, 2, CONCAT(CURDATE(), ' 11:30:00'), 'finalizado'),
+(3, 1, CONCAT(CURDATE(), ' 11:45:00'), 'finalizado'),
+(4, 1, CONCAT(CURDATE(), ' 11:50:00'), 'finalizado'),
+(2, 2, NOW(), 'em espera'),
+(5, 3, NOW(), 'em espera'),
+(6, 2, NOW(), 'em espera'),
+(7, 1, NOW(), 'em espera');
 
 -- =====================================================================
--- REFEICAO (histórico dos últimos dias + hoje)
+-- REFEICAO (histórico + hoje)
+-- Observação: saldos de carteira acima já refletem estes débitos.
 -- =====================================================================
 INSERT INTO refeicao (id_usuario, id_itens_cardapio, id_categoria_valores, valor, horario_entrada, horario_saida) VALUES
 (1,  1, 1, 8.50,  CONCAT(CURDATE(), ' 11:30:00'), CONCAT(CURDATE(), ' 12:05:00')),
@@ -362,26 +392,26 @@ INSERT INTO refeicao (id_usuario, id_itens_cardapio, id_categoria_valores, valor
 -- RECARGA_HISTORICO
 -- =====================================================================
 INSERT INTO recarga_historico (id_carteira, valor, data) VALUES
-(1, 30.00,  DATE_SUB(NOW(), INTERVAL 9 DAY)),
-(1, 20.00,  DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(1,  30.00, DATE_SUB(NOW(), INTERVAL 9 DAY)),
+(1,  20.00, DATE_SUB(NOW(), INTERVAL 2 DAY)),
 (4, 100.00, DATE_SUB(NOW(), INTERVAL 7 DAY)),
-(6, 42.00,  DATE_SUB(NOW(), INTERVAL 6 DAY)),
-(7, 28.00,  DATE_SUB(NOW(), INTERVAL 5 DAY)),
-(8, 60.00,  DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(6,  42.00, DATE_SUB(NOW(), INTERVAL 6 DAY)),
+(7,  28.00, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+(8,  60.00, DATE_SUB(NOW(), INTERVAL 5 DAY)),
 (11, 80.00, DATE_SUB(NOW(), INTERVAL 4 DAY)),
 (12, 95.00, DATE_SUB(NOW(), INTERVAL 4 DAY)),
-(2, 20.00,  DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(2,  20.00, DATE_SUB(NOW(), INTERVAL 3 DAY)),
 (15, 47.00, DATE_SUB(NOW(), INTERVAL 1 DAY));
 
 -- =====================================================================
--- CONTA_PAGAR
+-- CONTA_PAGAR (status DEFAULT = 'PENDENTE')
 -- =====================================================================
 INSERT INTO conta_pagar (valor, data_vencimento, status, origem, cnpj_fornecedor) VALUES
 (1500.00, DATE_ADD(CURDATE(), INTERVAL 5 DAY),  'PENDENTE', 'FORNECEDOR', '12345678000190'),
 (450.00,  DATE_ADD(CURDATE(), INTERVAL 8 DAY),  'PENDENTE', 'FORNECEDOR', '98765432000110'),
 (890.00,  DATE_ADD(CURDATE(), INTERVAL 3 DAY),  'PENDENTE', 'FORNECEDOR', '32165498000122'),
-(320.00,  DATE_SUB(CURDATE(), INTERVAL 2 DAY),  'PAGO',     'CEMIG', NULL),
-(180.00,  DATE_SUB(CURDATE(), INTERVAL 10 DAY), 'PAGO',     'COPASA', NULL),
+(320.00,  DATE_SUB(CURDATE(), INTERVAL 2 DAY),  'PAGO',     'CEMIG',      NULL),
+(180.00,  DATE_SUB(CURDATE(), INTERVAL 10 DAY), 'PAGO',     'COPASA',     NULL),
 (610.00,  DATE_ADD(CURDATE(), INTERVAL 1 DAY),  'PENDENTE', 'FORNECEDOR', '45612378000155'),
 (250.00,  DATE_SUB(CURDATE(), INTERVAL 5 DAY),  'PAGO',     'FORNECEDOR', '15975346000188'),
 (95.00,   DATE_ADD(CURDATE(), INTERVAL 15 DAY), 'PENDENTE', 'MANUTENCAO', NULL);
@@ -390,7 +420,38 @@ INSERT INTO conta_pagar (valor, data_vencimento, status, origem, cnpj_fornecedor
 -- CONTA_RECEBER
 -- =====================================================================
 INSERT INTO conta_receber (valor, data_prevista, origem) VALUES
-(15000.00, DATE_ADD(CURDATE(), INTERVAL 9 DAY), 'Subsídio Universidade'),
-(850.00,   CURDATE(), 'Recargas Consolidadas'),
-(620.00,   DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'Recargas Consolidadas'),
-(12000.00, DATE_ADD(CURDATE(), INTERVAL 30 DAY),'Subsídio Universidade');
+(15000.00, DATE_ADD(CURDATE(), INTERVAL 9 DAY),  'Subsídio Universidade'),
+(850.00,   CURDATE(),                            'Recargas Consolidadas'),
+(620.00,   DATE_ADD(CURDATE(), INTERVAL 1 DAY),  'Recargas Consolidadas'),
+(12000.00, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'Subsídio Universidade');
+
+-- =====================================================================
+-- CHECAGEM RÁPIDA (útil no Workbench / mysql client)
+-- =====================================================================
+SELECT 'cidade' AS tabela, COUNT(*) AS qtd FROM cidade
+UNION ALL SELECT 'usuario', COUNT(*) FROM usuario
+UNION ALL SELECT 'produto', COUNT(*) FROM produto
+UNION ALL SELECT 'estoque', COUNT(*) FROM estoque
+UNION ALL SELECT 'movimento_estoque', COUNT(*) FROM movimento_estoque
+UNION ALL SELECT 'cardapio', COUNT(*) FROM cardapio
+UNION ALL SELECT 'refeicao', COUNT(*) FROM refeicao
+UNION ALL SELECT 'carteira_digital', COUNT(*) FROM carteira_digital
+UNION ALL SELECT 'conta_pagar', COUNT(*) FROM conta_pagar
+UNION ALL SELECT 'conta_receber', COUNT(*) FROM conta_receber;
+
+-- Conferência de integridade: estoque = líquido dos movimentos
+SELECT
+    e.id_produto,
+    e.quantidade AS estoque_atual,
+    COALESCE(SUM(CASE WHEN m.tipo_movimento = 'ENTRADA' THEN m.quantidade_mov ELSE 0 END), 0)
+  - COALESCE(SUM(CASE WHEN m.tipo_movimento = 'SAIDA'   THEN m.quantidade_mov ELSE 0 END), 0) AS liquido_movimentos
+FROM estoque e
+LEFT JOIN movimento_estoque m ON m.id_produto = e.id_produto
+GROUP BY e.id_produto, e.quantidade
+HAVING estoque_atual <> liquido_movimentos;
+
+-- =====================================================================
+-- FIM DO SEED
+-- Se for usar recursos do Seminário II, execute em seguida:
+--   SOURCE database/sigru_avancado.sql;
+-- =====================================================================
