@@ -12,9 +12,11 @@
 @php
     $nav = [
         ['route' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'ti-layout-dashboard', 'match' => ['dashboard']],
+        ['route' => 'usuarios.index', 'label' => 'Usuários', 'icon' => 'ti-users', 'match' => ['usuarios.*']],
         ['route' => 'fila.index', 'label' => 'Fila virtual', 'icon' => 'ti-list-numbers', 'match' => ['fila.*', 'refeicao.*']],
         ['route' => 'carteiras.index', 'label' => 'Carteiras', 'icon' => 'ti-wallet', 'match' => ['carteiras.*']],
         ['route' => 'estoque.index', 'label' => 'Estoque', 'icon' => 'ti-package', 'match' => ['estoque.*']],
+        ['route' => 'relatorios.index', 'label' => 'Relatórios', 'icon' => 'ti-chart-bar', 'match' => ['relatorios.*']],
     ];
 @endphp
 <div class="app-layout">
@@ -35,7 +37,7 @@
                 </a>
             @endforeach
         </nav>
-        <div class="sidebar-footer">Laravel · Fase 3</div>
+        <div class="sidebar-footer">Laravel · BD II</div>
     </aside>
     <div class="main-wrapper">
         <header class="topbar">
